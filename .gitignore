@@ -1,0 +1,27 @@
+# Binaries (only at root)
+/docker-exporter
+/docker-exporter.exe
+/dist/
+
+# Go
+*.test
+*.out
+coverage.txt
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Local config
+.env
+.env.local
