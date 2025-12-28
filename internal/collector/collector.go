@@ -227,6 +227,9 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	start := time.Now()
 	ctx := context.Background()
 
+	c.logger.Debug("[COLLECTOR] Starting metrics collection",
+		zap.String("version", config.Version))
+
 	// Build info
 	ch <- prometheus.MustNewConstMetric(
 		c.buildInfo, prometheus.GaugeValue, 1,
@@ -240,35 +243,75 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	c.collectEngineMetrics(ctx, ch)
 
 	// Scrape duration
+	duration := time.Since(start).Seconds()
 	ch <- prometheus.MustNewConstMetric(
-		c.scrapeDuration, prometheus.GaugeValue, time.Since(start).Seconds(),
+		c.scrapeDuration, prometheus.GaugeValue, duration,
 	)
+
+	c.logger.Debug("[COLLECTOR] Metrics collection completed", zap.Float64("duration_seconds", duration))
 }
 
 // collectContainerMetrics collects metrics for all containers
 func (c *Collector) collectContainerMetrics(ctx context.Context, ch chan<- prometheus.Metric) {
+	c.logger.Debug("[STEP 1/4] Fetching container list from Docker API...")
+
 	containers, err := c.client.ListContainers(ctx)
 	if err != nil {
-		c.logger.Error("Failed to list containers", zap.Error(err))
+		c.logger.Error("[ERROR] Failed to list containers from Docker API", zap.Error(err))
 		return
 	}
+
+	if len(containers) == 0 {
+		c.logger.Debug("[STEP 2/4] No containers found - Docker returned empty list")
+		return
+	}
+
+	c.logger.Debug("[STEP 2/4] Containers retrieved successfully",
+		zap.Int("total_count", len(containers)))
+
+	// Count running containers
+	runningCount := 0
+	for _, cont := range containers {
+		if cont.Running {
+			runningCount++
+		}
+	}
+	c.logger.Debug("[STEP 2/4] Container breakdown",
+		zap.Int("running", runningCount),
+		zap.Int("stopped", len(containers)-runningCount))
 
 	var wg sync.WaitGroup
 	statsChan := make(chan *docker.ContainerStats, len(containers))
 
 	// Collect stats for running containers concurrently
+	c.logger.Debug("[STEP 3/4] Collecting stats for running containers...")
 	for _, cont := range containers {
+		c.logger.Debug("[CONTAINER] Processing",
+			zap.String("id", cont.ID),
+			zap.String("name", cont.Name),
+			zap.String("image", cont.Image),
+			zap.String("state", cont.State),
+			zap.Bool("running", cont.Running),
+			zap.String("health", cont.Health))
+
 		if cont.Running {
 			wg.Add(1)
 			go func(container docker.ContainerInfo) {
 				defer wg.Done()
+				c.logger.Debug("[STATS] Fetching stats for container",
+					zap.String("name", container.Name))
 				stats, err := c.client.GetContainerStats(ctx, container.ID, container.Name)
 				if err != nil {
-					c.logger.Debug("Failed to get container stats",
+					c.logger.Error("[ERROR] Failed to get container stats",
 						zap.String("container", container.Name),
+						zap.String("id", container.ID),
 						zap.Error(err))
 					return
 				}
+				c.logger.Debug("[STATS] Stats retrieved successfully",
+					zap.String("name", container.Name),
+					zap.Float64("cpu_percent", stats.CPUPercent),
+					zap.Uint64("memory_usage", stats.MemoryUsage))
 				statsChan <- stats
 			}(cont)
 		}
@@ -281,6 +324,7 @@ func (c *Collector) collectContainerMetrics(ctx context.Context, ch chan<- prome
 	}()
 
 	// Collect stats from channel
+	c.logger.Debug("[STEP 4/4] Emitting Prometheus metrics...")
 	statsMap := make(map[string]*docker.ContainerStats)
 	for stats := range statsChan {
 		statsMap[stats.ID] = stats

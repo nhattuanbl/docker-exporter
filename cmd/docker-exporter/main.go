@@ -53,15 +53,31 @@ func main() {
 	cancel()
 	logger.Info("Connected to Docker daemon", zap.String("host", cfg.DockerHost))
 
-	// Create and register collector
+	// Create collector
 	coll := collector.NewCollector(dockerClient, cfg, logger)
-	prometheus.MustRegister(coll)
+
+	// Setup metrics handler based on output mode
+	var metricsHandler http.Handler
+	if cfg.OutputMode == "minimum" {
+		// Use custom registry with only our collector (no go_*, process_*, promhttp_*)
+		registry := prometheus.NewRegistry()
+		registry.MustRegister(coll)
+		metricsHandler = promhttp.HandlerFor(registry, promhttp.HandlerOpts{
+			EnableOpenMetrics: true,
+		})
+		logger.Info("Output mode: minimum (only ndocker_* metrics)")
+	} else {
+		// Use default registry (includes go_*, process_*, promhttp_*)
+		prometheus.MustRegister(coll)
+		metricsHandler = promhttp.Handler()
+		logger.Info("Output mode: all (includes go_*, process_*, promhttp_* metrics)")
+	}
 
 	// Setup HTTP server
 	mux := http.NewServeMux()
 
 	// Metrics endpoint
-	mux.Handle(cfg.MetricsPath(), promhttp.Handler())
+	mux.Handle(cfg.MetricsPath(), metricsHandler)
 
 	// Root endpoint
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

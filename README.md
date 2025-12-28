@@ -41,6 +41,7 @@ make build
 | `--log-level` | `-l` | `info` | Log level: debug, info, warn, error |
 | `--log-path` | `-o` | stdout | Log file path |
 | `--docker-host` | `-d` | `tcp://localhost:2375` | Docker daemon address |
+| `--output` | `-u` | `minimum` | Output mode: `minimum` (only ndocker_*) or `all` (include go_*, process_*, promhttp_*) |
 | `--version` | `-v` | - | Show version information |
 
 ## Docker Configuration

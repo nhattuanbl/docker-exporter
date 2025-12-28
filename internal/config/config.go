@@ -25,6 +25,7 @@ type Config struct {
 	LogLevel   string
 	LogPath    string
 	DockerHost string
+	OutputMode string // "minimum" or "all"
 }
 
 // Parse parses command line flags and returns the configuration
@@ -38,6 +39,7 @@ func Parse() (*Config, bool) {
 	pflag.StringVarP(&cfg.LogLevel, "log-level", "l", "info", "Log level: debug, info, warn, error")
 	pflag.StringVarP(&cfg.LogPath, "log-path", "o", "", "Log file path (default stdout only)")
 	pflag.StringVarP(&cfg.DockerHost, "docker-host", "d", "tcp://localhost:2375", "Docker daemon address")
+	pflag.StringVarP(&cfg.OutputMode, "output", "u", "minimum", "Output mode: minimum (only ndocker_*) or all (include go_*, process_*, promhttp_*)")
 
 	showVersion := pflag.BoolP("version", "v", false, "Show version information")
 
@@ -54,6 +56,12 @@ func Parse() (*Config, bool) {
 	// Normalize endpoint path
 	cfg.Endpoint = strings.TrimPrefix(cfg.Endpoint, "/")
 	cfg.LogLevel = strings.ToLower(cfg.LogLevel)
+	cfg.OutputMode = strings.ToLower(cfg.OutputMode)
+
+	// Validate output mode
+	if cfg.OutputMode != "minimum" && cfg.OutputMode != "all" {
+		cfg.OutputMode = "minimum"
+	}
 
 	return cfg, true
 }
