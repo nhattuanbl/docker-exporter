@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/pflag"
 )
@@ -25,7 +26,8 @@ type Config struct {
 	LogLevel   string
 	LogPath    string
 	DockerHost string
-	OutputMode string // "minimum" or "all"
+	OutputMode string        // "minimum" or "all"
+	Timeout    time.Duration // API request timeout
 }
 
 // Parse parses command line flags and returns the configuration
@@ -40,6 +42,7 @@ func Parse() (*Config, bool) {
 	pflag.StringVarP(&cfg.LogPath, "log-path", "o", "", "Log file path (default stdout only)")
 	pflag.StringVarP(&cfg.DockerHost, "docker-host", "d", "tcp://localhost:2375", "Docker daemon address")
 	pflag.StringVarP(&cfg.OutputMode, "output", "u", "minimum", "Output mode: minimum (only ndocker_*) or all (include go_*, process_*, promhttp_*)")
+	pflag.DurationVarP(&cfg.Timeout, "timeout", "t", 2*time.Second, "Timeout for Docker API requests")
 
 	showVersion := pflag.BoolP("version", "v", false, "Show version information")
 

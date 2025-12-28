@@ -42,6 +42,7 @@ make build
 | `--log-path` | `-o` | stdout | Log file path |
 | `--docker-host` | `-d` | `tcp://localhost:2375` | Docker daemon address |
 | `--output` | `-u` | `minimum` | Output mode: `minimum` (only ndocker_*) or `all` (include go_*, process_*, promhttp_*) |
+| `--timeout` | `-t` | `2s` | Timeout for Docker API requests |
 | `--version` | `-v` | - | Show version information |
 
 ## Docker Configuration
@@ -56,8 +57,14 @@ To enable remote access to Docker daemon, configure `/etc/docker/daemon.json`:
   "iptables": false
 }
 ```
-
 > ⚠️ **Warning**: TCP without TLS is insecure. Use only in trusted networks or enable TLS.
+```bash
+chmod 755 /etc/docker/daemon.json
+nano /usr/lib/systemd/system/docker.service
+ExecStart=/usr/bin/dockerd
+systemctl daemon-reload
+sudo service docker restart
+```
 
 ## Metrics
 

@@ -13,9 +13,10 @@ import (
 
 // Collector implements prometheus.Collector interface
 type Collector struct {
-	client *docker.Client
-	prefix string
-	logger *zap.Logger
+	client  *docker.Client
+	prefix  string
+	logger  *zap.Logger
+	timeout time.Duration
 
 	// Container metrics
 	containerInfo         *prometheus.Desc
@@ -60,9 +61,10 @@ func NewCollector(client *docker.Client, cfg *config.Config, logger *zap.Logger)
 	prefix := cfg.Prefix
 
 	return &Collector{
-		client: client,
-		prefix: prefix,
-		logger: logger,
+		client:  client,
+		prefix:  prefix,
+		logger:  logger,
+		timeout: cfg.Timeout,
 
 		// Container core metrics
 		containerInfo: prometheus.NewDesc(
@@ -225,10 +227,14 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 // Collect implements prometheus.Collector
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	start := time.Now()
-	ctx := context.Background()
+
+	// Create context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+	defer cancel()
 
 	c.logger.Debug("[COLLECTOR] Starting metrics collection",
-		zap.String("version", config.Version))
+		zap.String("version", config.Version),
+		zap.Duration("timeout", c.timeout))
 
 	// Build info
 	ch <- prometheus.MustNewConstMetric(
