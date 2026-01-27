@@ -53,8 +53,7 @@ To enable remote access to Docker daemon, configure `/etc/docker/daemon.json`:
 {
   "metrics-addr": "0.0.0.0:9323",
   "experimental": true,
-  "hosts": ["tcp://0.0.0.0:2375", "unix:///var/run/docker.sock"],
-  "iptables": false
+  "hosts": ["tcp://0.0.0.0:2375", "unix:///var/run/docker.sock"]
 }
 ```
 > ⚠️ **Warning**: TCP without TLS is insecure. Use only in trusted networks or enable TLS.
